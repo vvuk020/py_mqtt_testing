@@ -109,13 +109,13 @@ def get_heartbeat():
                 result[cam_id] = f"ack {ts_str}" 
             else:
                 result[cam_id] = f"offline {ts_str}"
-        ts = heartbeats.get(WATER["id"])
+        # ts = heartbeats.get(WATER["id"])
         
         # --- Water sensor ---
         wl_id = WATER["id"]
         res_wl = heartbeats.get(wl_id)
         req_wl = hb_request_time.get(wl_id)
-        res_wl_str = time.strftime("%H:%M:%S %d/%m/%Y", time.localtime(req_wl))
+        res_wl_str = time.strftime("%H:%M:%S %d/%m/%Y", time.localtime(res_wl))
         print(f"DEBUG: {WATER['id']} request time: {req_wl:.3f}, response time: {res_wl:.3f} and diff: {(res_wl-req_wl):.3f}s")
 
         if(res_wl-req_wl) < HEARTBEAT_TIMEOUT:
@@ -123,9 +123,8 @@ def get_heartbeat():
         else:
             result[WATER["id"]] = f"offline {res_wl_str}"
 
-        
-        
-        result[WATER["id"]] = "ack" if ts and now - ts < HEARTBEAT_TIMEOUT else "offline"
+
+        # result[WATER["id"]] = "ack" if ts and now - ts < HEARTBEAT_TIMEOUT else "offline"
     return jsonify(result)
 
 # ---------- WATER ----------
