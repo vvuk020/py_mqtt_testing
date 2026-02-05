@@ -53,7 +53,6 @@ def on_message(client, userdata, msg):
             if topic == cam["pic_resp"]:
                 images[cam_id] = payload
                 image_time[cam_id] = time.time()
-                # heartbeats[cam_id] = time.time()  # <-- ADD THIS
                 return
             if topic == cam["hb_resp"]:
                 heartbeats[cam_id] = time.time()
@@ -101,14 +100,15 @@ def get_heartbeat():
         for cam_id in CAMERAS:
             ts = heartbeats.get(cam_id)
             
+            ts_str = time.strftime("%H:%M:%S %d/%m/%Y", time.localtime(ts))
             req_t = hb_request_time.get(cam_id)
             print(f"DEBUG: {cam_id} request time:{req_t:.3f}, response time:{ts:.3f} and diff{(ts-req_t):.3f}s")
 
             # result[cam_id] = "ack" if ts and now - ts < HEARTBEAT_TIMEOUT else "offline"
             if (ts-req_t) < HEARTBEAT_TIMEOUT:
-                result[cam_id] = "ack"
+                result[cam_id] = f"ack {ts_str}" 
             else:
-                result[cam_id] = "offline"
+                result[cam_id] = f"offline {ts_str}"
         ts = heartbeats.get(WATER["id"])
         
         result[WATER["id"]] = "ack" if ts and now - ts < HEARTBEAT_TIMEOUT else "offline"
@@ -122,29 +122,7 @@ def get_water():
             return jsonify({"status": "no_data"})
         return jsonify({"value": round(water_value,2)})
 
-# ---------- UPDATE ALL ----------
-# @app.route("/update_all")
-# def update_all():
-#     with lock:
-#         images.clear()
-#         heartbeats.clear()
-#     # Publish requests
-#     for cam in CAMERAS.values():
-#         client.publish(cam["pic_req"], "get")
 
-#         time.sleep(0.2)
-#         client.publish(cam["hb_req"], "ping")
-#         # time.sleep(0.2)
-#     client.publish(WATER["req"], "get")
-#     client.publish(WATER["hb_req"], "ping")
-#     # Wait for responses (max 2 sec)
-#     start = time.time()
-#     while time.time() - start < 2:
-#         with lock:
-#             if all(cam_id in images for cam_id in CAMERAS):
-#                 break
-#         time.sleep(0.05)
-#     return jsonify({"status": "done"})
 
 @app.route("/update_all")
 def update_all():
@@ -179,12 +157,6 @@ def update_all():
     client.publish(WATER["hb_req"], "ping")
     time.sleep(0.1)
     client.publish(WATER["req"], "get")
-    # start = time.time()
-    # while time.time() - start < 2:
-    #     with lock:
-    #         if WATER["id"] in heartbeats or water_value is not None:
-    #             break
-    #     time.sleep(0.1)
 
 
 
