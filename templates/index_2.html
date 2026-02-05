@@ -111,6 +111,12 @@ function manual() {
         body: JSON.stringify({req: reqTopic})
     });
 }
+
+
+
+// AUTO UPDATE EVERY 5 MINUTES -> 5 * 60 * 1000 
+setInterval(updateAll, 5 * 60 * 1000);
+
 </script>
 
 </body>
