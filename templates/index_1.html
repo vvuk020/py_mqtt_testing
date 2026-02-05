@@ -1,0 +1,120 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>ESP32 Dashboard</title>
+    <script>
+        // === Ultrasonic ===
+        function requestOnce() {
+            fetch("/request_once")
+            .then(r => r.json())
+            .then(data => {
+                document.getElementById("last_distance").innerText =
+                    data.distance ? data.distance.toFixed(2) + " cm" : "Timeout";
+            });
+        }
+        function startContinuousUltrasonic() { fetch("/start_continuous_ultrasonic"); }
+        function stopContinuousUltrasonic() { fetch("/stop_continuous_ultrasonic"); }
+        function updateUltrasonic() {
+            fetch("/get_last_ultrasonic")
+            .then(r => r.json())
+            .then(data => {
+                if (data.distance !== null)
+                    document.getElementById("last_distance").innerText = data.distance.toFixed(2) + " cm";
+            });
+        }
+        setInterval(updateUltrasonic, 500);
+
+        // === Heartbeat ===
+        function sendHeartbeat() {
+            const el = document.getElementById("heartbeat_status");
+            el.innerText = "⏳ waiting...";
+
+            fetch("/send_heartbeat")
+            .then(r => r.json())
+            .then(data => {
+                if (data.status === "ok") {
+                    const t = new Date(data.time * 1000).toLocaleTimeString();
+                    el.innerText = `${data.reply} (at ${t})`;
+                } else {
+                    el.innerText = "❌ No reply";
+                }
+            })
+            .catch(() => {
+                el.innerText = "❌ Error";
+            });
+        }
+
+        function startContinuousHeartbeat() { fetch("/start_continuous_heartbeat"); }
+        function stopContinuousHeartbeat() { fetch("/stop_continuous_heartbeat"); }
+        function updateHeartbeat() {
+            fetch("/get_heartbeat")
+            .then(r => r.json())
+            .then(data => {
+                const el = document.getElementById("heartbeat_status");
+
+                if (data.status === "stopped") {
+                    el.innerText = "--";
+                }
+                else if (data.status === "ok") {
+                    const t = new Date(data.time * 1000).toLocaleTimeString();
+                    el.innerText = `${data.reply} (at ${t})`;
+                }
+                else if (data.status === "timeout") {
+                    el.innerText = "❌ No reply (ESP offline)";
+                }
+                else {
+                    el.innerText = "❌ No reply";
+                }
+            });
+        }
+
+        setInterval(updateHeartbeat, 1000);
+
+        // === Camera ===
+        function requestImage() { fetch("/request_image"); }
+        function startContinuousCamera() { fetch("/start_continuous_camera"); }
+        function stopContinuousCamera() { fetch("/stop_continuous_camera"); }
+        function updateCamera() {
+            const img = document.getElementById("camera_image");
+            const status = document.getElementById("camera_status");
+
+            fetch("/get_image")
+            .then(r => {
+                if (!r.ok) throw new Error();
+                img.src = "/get_image?" + Date.now();
+                status.innerText = "Camera: ✅ online";
+            })
+            .catch(() => {
+                status.innerText = "Camera: ❌ offline";
+                img.src = "";
+            });
+        }
+        setInterval(updateCamera, 1000);
+
+    </script>
+</head>
+<body>
+    <h1>ESP32 Dashboard</h1>
+
+    <!-- Ultrasonic -->
+    <h2>Ultrasonic Sensor</h2>
+    <button onclick="requestOnce()">Request Once</button>
+    <button onclick="startContinuousUltrasonic()">Start Continuous</button>
+    <button onclick="stopContinuousUltrasonic()">Stop Continuous</button>
+    <p>Last distance: <span id="last_distance">--</span></p>
+
+    <!-- Heartbeat -->
+    <h2>Heartbeat</h2>
+    <button onclick="sendHeartbeat()">Send Heartbeat</button>
+    <button onclick="startContinuousHeartbeat()">Start Continuous</button>
+    <button onclick="stopContinuousHeartbeat()">Stop Continuous</button>
+    <p>Status: <span id="heartbeat_status">--</span></p>
+
+    <!-- Camera -->
+    <h2>ESP32 Camera</h2>
+    <button onclick="requestImage()">Request Image</button>
+    <button onclick="startContinuousCamera()">Start Continuous</button>
+    <button onclick="stopContinuousCamera()">Stop Continuous</button><br>
+    <img id="camera_image" src="" alt="No image yet" width="320">
+</body>
+</html>

@@ -1,0 +1,18 @@
+# Start mqtt
+sudo systemctl start mosquitto
+
+# Install mqtt
+sudo apt install mosquitto mosquitto-clients
+
+hostname -I
+# Use the 192.168.x.x address (e.g., 192.168.1.100)
+
+mosquitto_sub -h 192.168.1.100 -t "random/number"
+
+mosquitto_pub -h 192.168.1.100 -t "random/number" -m "42"
+
+# Check mosquitto status 
+sudo systemctl status mosquitto
+
+# Check port
+sudo netstat -tlnp | grep 1883
