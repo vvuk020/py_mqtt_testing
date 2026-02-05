@@ -97,12 +97,12 @@ def get_heartbeat():
     now = time.time()
     result = {}
     with lock:
+        # --- Cameras ---
         for cam_id in CAMERAS:
-            ts = heartbeats.get(cam_id)
-            
+            ts = heartbeats.get(cam_id)            
             ts_str = time.strftime("%H:%M:%S %d/%m/%Y", time.localtime(ts))
             req_t = hb_request_time.get(cam_id)
-            print(f"DEBUG: {cam_id} request time:{req_t:.3f}, response time:{ts:.3f} and diff{(ts-req_t):.3f}s")
+            print(f"DEBUG: {cam_id} request time: {req_t:.3f}, response time: {ts:.3f} and diff: {(ts-req_t):.3f}s")
 
             # result[cam_id] = "ack" if ts and now - ts < HEARTBEAT_TIMEOUT else "offline"
             if (ts-req_t) < HEARTBEAT_TIMEOUT:
@@ -110,6 +110,20 @@ def get_heartbeat():
             else:
                 result[cam_id] = f"offline {ts_str}"
         ts = heartbeats.get(WATER["id"])
+        
+        # --- Water sensor ---
+        wl_id = WATER["id"]
+        res_wl = heartbeats.get(wl_id)
+        req_wl = hb_request_time.get(wl_id)
+        res_wl_str = time.strftime("%H:%M:%S %d/%m/%Y", time.localtime(req_wl))
+        print(f"DEBUG: {WATER['id']} request time: {req_wl:.3f}, response time: {res_wl:.3f} and diff: {(res_wl-req_wl):.3f}s")
+
+        if(res_wl-req_wl) < HEARTBEAT_TIMEOUT:
+            result[WATER["id"]] = f"ack {res_wl_str}"
+        else:
+            result[WATER["id"]] = f"offline {res_wl_str}"
+
+        
         
         result[WATER["id"]] = "ack" if ts and now - ts < HEARTBEAT_TIMEOUT else "offline"
     return jsonify(result)
@@ -154,11 +168,30 @@ def update_all():
         time.sleep(0.2)
 
     # water sensor
+    hb_request_time[WATER["id"]] = time.time()
     client.publish(WATER["hb_req"], "ping")
+    
+    # wait for heatbeat for water level sensor
+    start = time.time()
+    while time.time() - start < 4:
+        with lock:
+            if WATER["id"] in heartbeats:
+                break
+        time.sleep(0.1)
+
     time.sleep(0.1)
+
+    with lock:
+        water_value = None # -> clear old value
     client.publish(WATER["req"], "get")
 
-
+    # wait for value of water level sensor
+    start = time.time()
+    while time.time() - start < 4:
+        with lock:
+            if water_value is not None:
+                break
+        time.sleep(0.1)
 
     return jsonify({"status": "done"})
 
