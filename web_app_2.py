@@ -42,12 +42,14 @@ lock = threading.Lock()
 
 # ================= MQTT =================
 
-client = mqtt.Client()
-def on_message(client, userdata, msg):
+# client = mqtt.Client()
+# client = mqtt.Client(mqtt.CallbackAPIVersion.VERSION2)
+client = None
+def on_message(client, userdata, message):
     global water_value, water_time
-    topic = msg.topic
-    payload = msg.payload
-
+    topic = message.topic
+    payload = message.payload
+    print(f"Got msg at topic: {topic}")
     with lock:
         for cam_id, cam in CAMERAS.items():
             if topic == cam["pic_resp"]:
@@ -67,13 +69,24 @@ def on_message(client, userdata, msg):
         if topic == WATER["hb_resp"]:
             heartbeats[WATER["id"]] = time.time()
 
-client.on_message = on_message
-client.connect(BROKER, PORT)
-subs = [(cam["pic_resp"],0) for cam in CAMERAS.values()] + \
-       [(cam["hb_resp"],0) for cam in CAMERAS.values()] + \
-       [(WATER["resp"],0), (WATER["hb_resp"],0)]
-client.subscribe(subs)
-client.loop_start()
+# client.on_message = on_message
+# client.connect(BROKER, PORT)
+# subs = [(cam["pic_resp"],0) for cam in CAMERAS.values()] + \
+#        [(cam["hb_resp"],0) for cam in CAMERAS.values()] + \
+#        [(WATER["resp"],0), (WATER["hb_resp"],0)]
+# client.subscribe(subs)
+# client.loop_start()
+
+def init_mqtt():
+    global client
+    client = mqtt.Client(mqtt.CallbackAPIVersion.VERSION2)
+    client.on_message = on_message
+    client.connect(BROKER, PORT)
+    subs = [(cam["pic_resp"],0) for cam in CAMERAS.values()] + \
+           [(cam["hb_resp"],0) for cam in CAMERAS.values()] + \
+           [(WATER["resp"],0), (WATER["hb_resp"],0)]
+    client.subscribe(subs)
+    client.loop_start()
 
 # ================= FLASK =================
 
@@ -100,8 +113,15 @@ def get_heartbeat():
         # --- Cameras ---
         for cam_id in CAMERAS:
             ts = heartbeats.get(cam_id)            
-            ts_str = time.strftime("%H:%M:%S %d/%m/%Y", time.localtime(ts))
             req_t = hb_request_time.get(cam_id)
+            
+            # Skip if either is missing
+            if ts is None or req_t is None:
+                result[cam_id] = "offline"
+                continue
+
+            ts_str = time.strftime("%H:%M:%S %d/%m/%Y", time.localtime(ts))
+            
             print(f"DEBUG: {cam_id} request time: {req_t:.3f}, response time: {ts:.3f} and diff: {(ts-req_t):.3f}s")
 
             # result[cam_id] = "ack" if ts and now - ts < HEARTBEAT_TIMEOUT else "offline"
@@ -115,14 +135,17 @@ def get_heartbeat():
         wl_id = WATER["id"]
         res_wl = heartbeats.get(wl_id)
         req_wl = hb_request_time.get(wl_id)
-        res_wl_str = time.strftime("%H:%M:%S %d/%m/%Y", time.localtime(res_wl))
-        print(f"DEBUG: {WATER['id']} request time: {req_wl:.3f}, response time: {res_wl:.3f} and diff: {(res_wl-req_wl):.3f}s")
 
-        if(res_wl-req_wl) < HEARTBEAT_TIMEOUT:
-            result[WATER["id"]] = f"ack {res_wl_str}"
+        # Skip if either is missing
+        if res_wl is None or req_wl is None:
+            result[wl_id] = "offline"
         else:
-            result[WATER["id"]] = f"offline {res_wl_str}"
-
+            res_wl_str = time.strftime("%H:%M:%S %d/%m/%Y", time.localtime(res_wl))
+            print(f"DEBUG: {wl_id} request time: {req_wl:.3f}, response time: {res_wl:.3f} and diff: {(res_wl - req_wl):.3f}s")
+            if (res_wl - req_wl) < HEARTBEAT_TIMEOUT:
+                result[wl_id] = f"ack {res_wl_str}"
+            else:
+                result[wl_id] = f"offline {res_wl_str}"
 
         # result[WATER["id"]] = "ack" if ts and now - ts < HEARTBEAT_TIMEOUT else "offline"
     return jsonify(result)
@@ -205,4 +228,5 @@ def manual():
 # ================= MAIN =================
 
 if __name__ == "__main__":
-    app.run(host="0.0.0.0", port=5000, debug=True)
+    init_mqtt()  # ← only run once, in main process
+    app.run(host="0.0.0.0", port=5000, debug=True, use_reloader=False)

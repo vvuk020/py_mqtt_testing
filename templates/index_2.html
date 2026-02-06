@@ -101,7 +101,6 @@ function updateAll() {
             updateHeartbeat();
         });
 }
-
 function manual() {
     const reqTopic = document.getElementById("req").value;
     if (!reqTopic) return;
@@ -111,6 +110,7 @@ function manual() {
         body: JSON.stringify({req: reqTopic})
     });
 }
+
 
 
 
