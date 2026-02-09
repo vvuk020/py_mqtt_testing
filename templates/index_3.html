@@ -70,15 +70,18 @@
         <h3>Heartbeat</h3>
         <div class="hb" id="hb"></div>
 
+
+        <h3>Actuators</h3>
+        <button onclick="togglePump()">Pump: <span id="pumpState">OFF</span></button>
+        <button onclick="toggleLight()">Lamp: <span id="lightState">OFF</span></button>
+
+        <h3>Actions</h3>
+        <button onclick="updateAll()">Update ALL</button>
+
         <h3>Manual MQTT</h3>
         <input id="req" placeholder="REQ topic">
         <button onclick="manual()">Send</button>
 
-        <h3>Actions</h3>
-        <button onclick="updateAll()">Update ALL</button>
-        <h3>Actuators</h3>
-        <button onclick="togglePump()">Pump: <span id="pumpState">OFF</span></button>
-        <button onclick="toggleLight()">Lamp: <span id="lightState">OFF</span></button>
 
     </div>
 
@@ -143,10 +146,28 @@ function updateHeartbeat() {
             hb.innerHTML = "";
             for (let k in data) {
                 hb.innerHTML += `<div>${k}: <span class="${data[k]}">${data[k]}</span></div>`;
+                // const status = data[k].startsWith("ack") ? "ack" : "offline";
+                // hb.innerHTML += `<div>${k}: <span class="${status}">${data[k]}</span></div>`;
+
             }
         });
 
     }
+
+
+// function updateHeartbeat() {
+//     fetch("/heartbeat")
+//         .then(r => r.json())
+//         .then(data => {
+//             const hb = document.getElementById("hb");
+//             hb.innerHTML = "";
+//             Object.entries(data).forEach(([k, value]) => {
+//                 const statusClass = value.startsWith("ack") ? "ack" : "offline";
+//                 hb.innerHTML += `<div>${k}: <span class="${statusClass}">${value}</span></div>`;
+//             });
+//         });
+// }
+
 
 function togglePump() {
     fetch("/pump/toggle", { method: "POST" })
@@ -204,6 +225,7 @@ function updateAll() {
 }
 
 
+
 function manual() {
     const reqTopic = document.getElementById("req").value;
     if (!reqTopic) return;
@@ -213,8 +235,6 @@ function manual() {
         body: JSON.stringify({req: reqTopic})
     });
 }
-
-
 
 
 // AUTO UPDATE EVERY 5 MINUTES -> 5 * 60 * 1000 

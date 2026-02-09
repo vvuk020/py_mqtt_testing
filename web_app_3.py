@@ -33,11 +33,17 @@ WATER = {
 
 # ================= ACTUATORS =================
 
+ACTUATOR = {
+    "id": "ESP32_ACT_1",
+    "hb_req": "ESP32_ACT_1/heartbeat/request",
+    "hb_resp": "ESP32_ACT_1/heartbeat/response",
+}
 PUMP_REQ_TOPIC = "ESP32_ACT_1/pump/digital/request"
 LIGHT_REQ_TOPIC = "ESP32_ACT_1/light/digital/request"
 
 pump_state = 0   # 0 = OFF, 1 = ON
 light_state = 0
+
 
 # ================= STATE =================
 
@@ -77,6 +83,12 @@ def on_message(client, userdata, message):
             return
         if topic == WATER["hb_resp"]:
             heartbeats[WATER["id"]] = time.time()
+        
+        if topic == ACTUATOR["hb_resp"]:
+            heartbeats[ACTUATOR["id"]] = time.time()
+            print(f"RESPONSE: Actuator msg: {payload}")
+            print(f"RESPONSE: Actuator hbeat: {heartbeats[ACTUATOR['id']]}")
+            return
 
 # client.on_message = on_message
 # client.connect(BROKER, PORT)
@@ -93,7 +105,9 @@ def init_mqtt():
     client.connect(BROKER, PORT)
     subs = [(cam["pic_resp"],0) for cam in CAMERAS.values()] + \
            [(cam["hb_resp"],0) for cam in CAMERAS.values()] + \
-           [(WATER["resp"],0), (WATER["hb_resp"],0)]
+           [(WATER["resp"],0), (WATER["hb_resp"],0)] + \
+           [(ACTUATOR["hb_resp"], 0)]
+
     client.subscribe(subs)
     client.loop_start()
 
@@ -157,6 +171,29 @@ def get_heartbeat():
                 result[wl_id] = f"offline {res_wl_str}"
 
         # result[WATER["id"]] = "ack" if ts and now - ts < HEARTBEAT_TIMEOUT else "offline"
+
+
+
+        # --- Actuator ---
+        act_id = ACTUATOR["id"]
+        res_act = heartbeats.get(act_id)
+        req_act = hb_request_time.get(act_id)
+        # print(f"DEBUG:")
+
+        # Always show actuator status (default to offline if no data)
+        if res_act is None or req_act is None:
+            result[act_id] = "offline"
+        else:
+            act_rs_str = time.strftime("%H:%M:%S %d/%m/%Y", time.localtime(res_act))
+            print(f"DEBUG: {act_id} request time: {req_act:.3f}, response time: {res_act:.3f} and diff: {(res_act - req_act):.3f}s")
+            if (res_act - req_act) < HEARTBEAT_TIMEOUT:
+                result[act_id] = f"ack {act_rs_str}"
+            else:
+                result[act_id] = f"offline {act_rs_str}"
+
+    
+    print("HEARTBEAT ORDER:", list(result.keys()))
+    
     return jsonify(result)
 
 # ---------- WATER ----------
@@ -240,6 +277,19 @@ def update_all():
                 break
         time.sleep(0.1)
 
+    # actuator sensor
+    hb_request_time[ACTUATOR["id"]] = time.time()
+    client.publish(ACTUATOR["hb_req"], "ping")
+    print(f"REQUEST: Actuator request time {hb_request_time[ACTUATOR['id']]}")
+
+    # wait for heatbeat for actuator
+    start = time.time()
+    while time.time() - start < 4:
+        with lock:
+            if ACTUATOR["id"] in heartbeats:
+                break
+        time.sleep(0.1)
+    
     return jsonify({"status": "done"})
 
 # ---------- MANUAL ----------
