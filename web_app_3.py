@@ -279,6 +279,9 @@ def update_all():
 
     # actuator sensor
     hb_request_time[ACTUATOR["id"]] = time.time()
+    with lock:
+            heartbeats.pop(ACTUATOR["id"], None)  # ← clear old response
+    
     client.publish(ACTUATOR["hb_req"], "ping")
     print(f"REQUEST: Actuator request time {hb_request_time[ACTUATOR['id']]}")
 
