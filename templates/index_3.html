@@ -173,19 +173,35 @@ function togglePump() {
     fetch("/pump/toggle", { method: "POST" })
         .then(r => r.json())
         .then(d => {
-            document.getElementById("pumpState").innerText =
-                d.state ? "ON" : "OFF";
-        });
+            const pumpBtn = document.querySelector('button[onclick="togglePump()"]');
+            document.getElementById("pumpState").innerText = d.state ? "ON" : "OFF";
 
-    }
+            // Change button color
+            if (d.state) {
+                pumpBtn.style.backgroundColor = "#4caf50"; // green
+                pumpBtn.style.color = "#fff"; // text white for contrast
+            } else {
+                pumpBtn.style.backgroundColor = ""; // default
+                pumpBtn.style.color = ""; // default
+            }
+        });
+}
 
 function toggleLight() {
     fetch("/light/toggle", { method: "POST" })
         .then(r => r.json())
-    
         .then(d => {
-            document.getElementById("lightState").innerText =
-                d.state ? "ON" : "OFF";
+            const lightBtn = document.querySelector('button[onclick="toggleLight()"]');
+            document.getElementById("lightState").innerText = d.state ? "ON" : "OFF";
+
+            // Change button color
+            if (d.state) {
+                lightBtn.style.backgroundColor = "#4caf50"; // green
+                lightBtn.style.color = "#fff"; // text white
+            } else {
+                lightBtn.style.backgroundColor = ""; // default
+                lightBtn.style.color = ""; // default
+            }
         });
 }
 
@@ -201,10 +217,24 @@ function toggleLight() {
 // }
 
 
+
 function flashAlive() {
     const box = document.getElementById("aliveBox");
     box.style.color = "#ff9800";
     setTimeout(() => box.style.color = "#aaa", 500);
+
+     // Flash the Update ALL button
+    const updateBtn = document.querySelector('button[onclick="updateAll()"]');
+    if (updateBtn) {
+
+        const originalBg = updateBtn.style.backgroundColor;
+        updateBtn.style.backgroundColor = "#ff9800"; // bright flash
+        updateBtn.style.color = "#000"; // contrast for readability
+        setTimeout(() => {
+            updateBtn.style.backgroundColor = originalBg || ""; // revert to original
+            updateBtn.style.color = ""; // revert text color
+        }, 500);
+    }
 }
 
 
