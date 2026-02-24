@@ -41,8 +41,8 @@ ACTUATOR = {
 PUMP_REQ_TOPIC = "ESP32_ACT_1/pump/digital/request"
 LIGHT_REQ_TOPIC = "ESP32_ACT_1/light/digital/request"
 
-pump_state = 0   # 0 = OFF, 1 = ON
-light_state = 0
+pump_state = 1   # 0 = OFF, 1 = ON
+light_state = 1
 
 
 # ================= STATE =================
@@ -117,7 +117,7 @@ app = Flask(__name__)
 
 @app.route("/")
 def index():
-    return render_template("index_3.html", cams=list(CAMERAS.keys()))
+    return render_template("index_3_reverse.html", cams=list(CAMERAS.keys()))
 
 # ---------- CAMERA ----------
 @app.route("/camera/<cam_id>")

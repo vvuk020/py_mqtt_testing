@@ -1,0 +1,276 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>ESP32 Dashboard</title>
+    <style>
+        body { font-family: Arial; background:#111; color:#eee; }
+        .container { display: grid; grid-template-columns: 2fr 1fr; gap:20px; padding:20px; }
+        .cams { display:grid; grid-template-columns: 1fr 1fr; gap:10px; }
+        img { width:100%; background:#000; border:2px solid #333; }
+        .water { margin-top:10px; font-size:20px; }
+        .hb div { margin:5px 0; }
+        .ack { color:#4caf50; }
+        .offline { color:#f44336; }
+        input, button { width:100%; margin:5px 0; padding:5px; }
+        button { cursor:pointer; }
+        #busyBox {
+            position: fixed;
+            top: 15px;
+            right: 20px;
+            background: #222;
+            border: 1px solid #444;
+            padding: 8px 14px;
+            border-radius: 6px;
+            font-size: 14px;
+            display: none;
+        }
+
+        #busyBox.active {
+            display: block;
+            color: #ff9800;
+            font-weight: bold;
+        }
+    </style>
+    <style>
+        .cams > div { display: flex; flex-direction: column; }
+        .cams > div > div { text-align: center; margin-bottom: 5px; font-size: 14px; }
+    </style>
+</head>
+<body>
+
+<h1>ESP32 Dashboard</h1>
+
+
+<div id="aliveBox">Update pressed</div>
+
+<div id="busyBox">
+    Update counter: <span id="busyCounter">–</span>
+</div>
+
+<div class="container">
+
+    <!-- LEFT -->
+    <div>
+        <div class="cams">
+            {% for cam in cams %}
+            <div>
+                <div>{{ cam }}</div>
+                <img id="{{ cam }}">
+            </div>
+            {% endfor %}
+        </div>
+
+        <div class="water">
+            Water level: <span id="water">--</span> cm
+        </div>
+    </div>
+
+    <!-- RIGHT -->
+    <div>
+        <h3>Heartbeat</h3>
+        <div class="hb" id="hb"></div>
+
+
+        <h3>Actuators</h3>
+        <button onclick="togglePump()">Pump: <span id="pumpState">OFF</span></button>
+        <button onclick="toggleLight()">Lamp: <span id="lightState">OFF</span></button>
+
+        <h3>Actions</h3>
+        <button onclick="updateAll()">Update ALL</button>
+
+        <h3>Manual MQTT</h3>
+        <input id="req" placeholder="REQ topic">
+        <button onclick="manual()">Send</button>
+
+
+    </div>
+
+</div>
+
+<script>
+const cams = {{ cams|tojson }};
+
+let busyTimer = null;
+let busyCount = 0;
+
+function startBusyCounter() {
+    busyCount = 1;
+    const box = document.getElementById("busyBox");
+    const counter = document.getElementById("busyCounter");
+
+    box.classList.add("active");
+    counter.innerText = busyCount;
+
+    busyTimer = setInterval(() => {
+        busyCount++;
+        if (busyCount > 10) busyCount = 10;
+        counter.innerText = busyCount;
+    }, 1000);
+}
+
+function stopBusyCounter() {
+    clearInterval(busyTimer);
+    busyTimer = null;
+    document.getElementById("busyBox").classList.remove("active");
+}
+
+
+
+
+function updateCams() {
+    cams.forEach(c => {
+        const img = document.getElementById(c);
+        fetch(`/camera/${c}`)
+            .then(r => {
+                if (!r.ok) throw new Error();
+                img.src = `/camera/${c}?t=${Date.now()}`;
+            })
+            .catch(() => img.src = "");
+    });
+}
+
+function updateWater() {
+    fetch("/water")
+        .then(r => r.json())
+        .then(d => {
+            if (d.value !== undefined)
+                document.getElementById("water").innerText = d.value;
+        });
+}
+
+function updateHeartbeat() {
+    fetch("/heartbeat")
+        .then(r => r.json())
+        .then(data => {
+            const hb = document.getElementById("hb");
+            hb.innerHTML = "";
+            for (let k in data) {
+                hb.innerHTML += `<div>${k}: <span class="${data[k]}">${data[k]}</span></div>`;
+                // const status = data[k].startsWith("ack") ? "ack" : "offline";
+                // hb.innerHTML += `<div>${k}: <span class="${status}">${data[k]}</span></div>`;
+
+            }
+        });
+
+    }
+
+
+// function updateHeartbeat() {
+//     fetch("/heartbeat")
+//         .then(r => r.json())
+//         .then(data => {
+//             const hb = document.getElementById("hb");
+//             hb.innerHTML = "";
+//             Object.entries(data).forEach(([k, value]) => {
+//                 const statusClass = value.startsWith("ack") ? "ack" : "offline";
+//                 hb.innerHTML += `<div>${k}: <span class="${statusClass}">${value}</span></div>`;
+//             });
+//         });
+// }
+
+
+function togglePump() {
+    fetch("/pump/toggle", { method: "POST" })
+        .then(r => r.json())
+        .then(d => {
+            const pumpBtn = document.querySelector('button[onclick="togglePump()"]');
+            document.getElementById("pumpState").innerText = d.state ? "OFF" : "ON";
+
+            // Change button color
+            if (!d.state) {
+                pumpBtn.style.backgroundColor = "#4caf50"; // green
+                pumpBtn.style.color = "#fff"; // text white for contrast
+            } else {
+                pumpBtn.style.backgroundColor = ""; // default
+                pumpBtn.style.color = ""; // default
+            }
+        });
+}
+
+function toggleLight() {
+    fetch("/light/toggle", { method: "POST" })
+        .then(r => r.json())
+        .then(d => {
+            const lightBtn = document.querySelector('button[onclick="toggleLight()"]');
+            document.getElementById("lightState").innerText = d.state ? "OFF" : "ON";
+
+            // Change button color
+            if (!d.state) {
+                lightBtn.style.backgroundColor = "#4caf50"; // green
+                lightBtn.style.color = "#fff"; // text white
+            } else {
+                lightBtn.style.backgroundColor = ""; // default
+                lightBtn.style.color = ""; // default
+            }
+        });
+}
+
+
+// function updateAll() {
+//     fetch("/update_all")
+//         .then(r => r.json())
+//         .then(() => {
+//             updateCams();
+//             updateWater();
+//             updateHeartbeat();
+//         });
+// }
+
+
+
+function flashAlive() {
+    const box = document.getElementById("aliveBox");
+    box.style.color = "#ff9800";
+    setTimeout(() => box.style.color = "#aaa", 500);
+
+     // Flash the Update ALL button
+    const updateBtn = document.querySelector('button[onclick="updateAll()"]');
+    if (updateBtn) {
+
+        const originalBg = updateBtn.style.backgroundColor;
+        updateBtn.style.backgroundColor = "#ff9800"; // bright flash
+        updateBtn.style.color = "#000"; // contrast for readability
+        setTimeout(() => {
+            updateBtn.style.backgroundColor = originalBg || ""; // revert to original
+            updateBtn.style.color = ""; // revert text color
+        }, 500);
+    }
+}
+
+
+function updateAll() {
+    startBusyCounter();
+    flashAlive()
+    fetch("/update_all")
+        .then(r => r.json())
+        .then(() => {
+            stopBusyCounter();
+            updateCams();
+            updateWater();
+            updateHeartbeat();
+        })
+        .catch(() => {
+            stopBusyCounter();
+        });
+}
+
+
+
+function manual() {
+    const reqTopic = document.getElementById("req").value;
+    if (!reqTopic) return;
+    fetch("/manual", {
+        method: "POST",
+        headers: {"Content-Type": "application/json"},
+        body: JSON.stringify({req: reqTopic})
+    });
+}
+
+
+// AUTO UPDATE EVERY 5 MINUTES -> 5 * 60 * 1000 
+setInterval(updateAll, 5 * 60 * 1000);
+
+</script>
+
+</body>
+</html>

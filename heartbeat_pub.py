@@ -2,10 +2,10 @@ import time
 import random
 import paho.mqtt.client as mqtt
 
-BROKER = "192.168.1.100"
+BROKER = "192.168.1.163"
 PORT = 1883
-REQUEST_TOPIC = "esp32/heartbeat/request"
-RESPONSE_TOPIC = "esp32/heartbeat/response"
+REQUEST_TOPIC = "ESP32_CAM_1/heartbeat/request"
+RESPONSE_TOPIC = "ESP32_CAM_1/heartbeat/response"
 
 # Global to hold reply
 reply_received = None
